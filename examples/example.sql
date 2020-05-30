@@ -1,4 +1,3 @@
---/ First test with static table
 
 /*
 Пример 1
