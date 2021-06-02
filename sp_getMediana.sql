@@ -6,11 +6,9 @@ Create procedure [dbo].[sp_getMediana]
 Created by: Могилевцев Дмитрий
 Created date: 2020-05-29
 Description: 
+Медиана - число, стоящее посередине упорядоченного по возрастанию ряда чисел (в случае, если количество чисел нечётное). Если же количество чисел в ряду чётно, то медианой ряда является полусумма двух стоящих посередине чисел упорядоченного по возрастанию ряда
 
-	МЕДИАНА - число, стоящее посередине упорядоченного по возрастанию ряда чисел (в случае, если количество чисел нечётное). 
-		Если же количество чисел в ряду		чётно, то медианой ряда является полусумма двух стоящих посередине чисел упорядоченного по возрастанию ряда
-
-	Параметры:
+Параметры:
 	1)	@tbl – Название таблицы /вложенный запрос типа
 	2)	@grp – поле или массив полей по которым будет происходить группировка (массив передается в кавычках через запятую)
 	3)	@val – числовые поля по которым будет происходить группировка, сортировка и поиск медианы (поиск медианы идет по первому столбцу из массива подробнее далее)
@@ -31,6 +29,8 @@ Description:
 
 as
 
+SET NOCOUNT ON
+
 declare @exec varchar(max), @error varchar(max)
 
 
@@ -45,10 +45,10 @@ declare @periodBy table(id int, col varchar(max))
 
 
 -- Наполняем таблицы
-insert into @groupBy select * from fc_mog_SplitToTable(',', @grp)
-insert into @valueBy select * from fc_mog_SplitToTable(',', @val)
-insert into @orderBy select * from fc_mog_SplitToTable(',', @ord)
-insert into @periodBy select * from fc_mog_SplitToTable(',', @period)
+insert into @groupBy select * from f_SplitToTable(',', @grp)
+insert into @valueBy select * from f_SplitToTable(',', @val)
+insert into @orderBy select * from f_SplitToTable(',', @ord)
+insert into @periodBy select * from f_SplitToTable(',', @period)
 
 -- Задаем сразу поля сортировки
 select @ord = @grp + ',' + @ord
@@ -123,17 +123,20 @@ declare @resMaxId table(id int)
 insert into @resMaxId(id)
 exec(@exec)
 
+
+
 if ((select id from @resMaxId) % 2 = 0)
 	begin
 		-- Если четное кол-во - берем полусумму двух стоящих посередине чисел упорядоченного по возрастанию ряда
-		set @i = 1
+		select @i = 1, @val = ''
 		while @i < (select max(id) from @valueBy) + 1
 		begin
-			select @val = 'sum(' + (select col from @valueBy where id = @i) + ')/2.0 as ' + (select col from @valueBy) + ','
-			set @i = @i + 1
+			select @val += 'sum(' + (select col from @valueBy where id = @i) + ')/2.0 as ' + (select col from @valueBy where id = @i) + ','
+			set @i += 1
 		end
 		select @val	= left(@val, len(@val)-1)
 		select @exec = 'select ' + @grp + ',' + @val + ' from (' + @resTbl + ') a where id in (' + cast((select id from @resMaxId)/2 as varchar) + ',' + cast((select id from @resMaxId)/2+1 as varchar) + ') group by ' + @grp
+		--print @exec
 	end
 else
 	begin
